@@ -1,23 +1,21 @@
 package foo;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.concurrent.*;
 
 import static java.lang.Math.*;
 
 /**
- * This is quick and dirty test on how many WAITING thread count task exectution will face perfomance degradation
- * because of threads in WAIT state.
- */
-public class ThreadPoolPerfomanceTest {
+ * This is quick and dirty test to see if many WAITING threads affect task execution performance
+ * */
+public class ThreadPoolSizePerformanceTest {
     public static void main(String[] s) throws InterruptedException, ExecutionException {
-        System.out.println(getAvgExecutionTime(1000));//warmup starts from 1000
+        System.out.println(getAvgExecutionTime(1000,Executors.newSingleThreadExecutor()));//warmup starts from 1000
         System.gc();
         Thread.sleep(10_000);//sleep 10 seconds, letting compilation to finish
         System.out.println("after warmup");
-        int executionCount = 100;
+        int executionCount = 200;
         int threadIncrementNumber = 500;
         List<ThreadPoolExecutor> threadPoolExecutors = new ArrayList<>();
         for (int i = 0; i < 6_000; i = i + threadIncrementNumber) {
@@ -43,25 +41,14 @@ public class ThreadPoolPerfomanceTest {
         System.out.println("done");
     }
 
-    private static void printStatistics(int executionCount, ThreadPoolExecutor executorService, int numberOfThreads) throws InterruptedException, ExecutionException {
+    static void printStatistics(int executionCount, ThreadPoolExecutor executorService, int numberOfThreads) throws InterruptedException, ExecutionException {
         System.out.println("number of threads = " + numberOfThreads);
-        System.out.println("avg execution time in a single thread = " + executorService.submit(() -> getAvgExecutionTime(executionCount)).get());
-        System.out.println("avg execution time in different threads for each execution with blocking = " + getAvgExecutionTimeWithBlocking(executionCount, executorService));
-        System.out.println("avg execution time in different threads in paralel = " + getAvgExecutionTimeInDifferentThreadsInParalel(executionCount, executorService));
+        printResults(ThreadPoolSizePerformanceTest::getAvgExecutionTime,executionCount,executorService,"for same thread ");
+        printResults(ThreadPoolSizePerformanceTest::getAvgExecutionTimeWithBlocking,executionCount,executorService,"for different threads with each execution blocking others ");
+        printResults(ThreadPoolSizePerformanceTest::getAvgExecutionTimeInDifferentThreadsInParalel,executionCount,executorService,"for different threads execution in parallel");
     }
 
-    private static void startThreads(ExecutorService executorService, int thradsToStart) throws InterruptedException {
-        for (int i = 0; i < thradsToStart; i++) {
-            executorService.execute(new Runnable() {
-                @Override
-                public void run() {
-                    long a = new Date().getTime();
-                }
-            });
-        }
-    }
-
-    private static Long getAvgExecutionTime(int count) {
+    static Long getAvgExecutionTime(int count, ExecutorService executorService) {
         long sum = 0;
         for (int i = 0; i < count; i++) {
             long calculationTime = getCalculationTime();
@@ -72,7 +59,7 @@ public class ThreadPoolPerfomanceTest {
     }
 
 
-    private static Long getAvgExecutionTimeWithBlocking(int count, ExecutorService executorService) throws ExecutionException, InterruptedException {
+    static Long getAvgExecutionTimeWithBlocking(int count, ExecutorService executorService) throws ExecutionException, InterruptedException {
         long sum = 0;
         for (int i = 0; i < count; i++) {
             long calculationTime = executorService.submit(() -> getCalculationTime()).get();
@@ -82,7 +69,7 @@ public class ThreadPoolPerfomanceTest {
         return avg;
     }
 
-    private static Long getAvgExecutionTimeInDifferentThreadsInParalel(int count, ExecutorService executorService) throws ExecutionException, InterruptedException {
+    static Long getAvgExecutionTimeInDifferentThreadsInParalel(int count, ExecutorService executorService) throws ExecutionException, InterruptedException {
         long sum = 0;
         List<Future<Long>> futures = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
@@ -95,7 +82,7 @@ public class ThreadPoolPerfomanceTest {
         return avg;
     }
 
-    private static long getCalculationTime() {
+    static long getCalculationTime() {
         long start = System.currentTimeMillis();
         int i = 100000;
         while (i != 0) {
@@ -108,4 +95,17 @@ public class ThreadPoolPerfomanceTest {
         //}
         return end - start - i;
     }
+
+    static void printResults(AverageExecutionTime e, int count, ExecutorService executorService, String messageStart) throws ExecutionException, InterruptedException {
+        long start = System.currentTimeMillis();
+        Long avgExecutionTime = e.execute(count, executorService);
+        long totalExecutionTime = System.currentTimeMillis() - start;
+        System.out.println(messageStart + " avgExecutionTime=" + avgExecutionTime + " " + " totalExecutionTime=" + totalExecutionTime);
+    }
+
+}
+
+@FunctionalInterface
+interface AverageExecutionTime {
+    Long execute(int count, ExecutorService executorService) throws ExecutionException, InterruptedException;
 }

@@ -7,6 +7,7 @@
     <groupId>foo</groupId>
     <artifactId>foo</artifactId>
     <version>1.0</version>
+    <name>Thread Pool Size Perfomance Test</name>
     <properties>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
